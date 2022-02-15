@@ -1,45 +1,74 @@
 '''Main script for testing'''
 import json
-import bungie
+import datetime
+from posixpath import split
 
-'''Write text (String) to file given at file_path (String)'''
+import bungie
+    
+def main():
+    manifest = bungie.get_manifest()
+    # write_to("manifest.json", pp(manifest))
+
+    # bungie_name = "Sagey#8502"
+    # bungie_name = "chris#5313"
+    bungie_name = "AKapella#7901"
+    # get_char_stuff(manifest, bungie_name)
+    current_status(manifest, bungie_name)
+
+
 def write_to(file_path, text):
+    '''Write text to output file in the output folder
+    Args:
+        file_path (string): path to file
+        text (string): text to write to file
+    '''
     with open(f"output/{file_path}", "w") as f:
         f.write(text)
 
-'''Pretty print JSON text (j)'''
 def pp(jsn):
+    '''Pretty print JSON text (j)'''
     return json.dumps(jsn, indent=3, sort_keys=True)
-    
-def main():
-    # write_to("manifest.json", pp(bungie.get_manifest()))
-    # write_to("output/dump.json", pp(bungie.get_definitions("jsonWorldContentPaths")))
 
-    classdef = bungie.get_definitions("DestinyClassDefinition")
+def current_status(manifest, bungie_name):
+    components = {"characters", "characterActivities"}
+    user = bungie.get_user(bungie_name, components)["Response"]
+    character_infos = user["characters"]["data"]
+    character_activities = user["characterActivities"]["data"]
 
-    bungie_name = "Sagey#8502"
-    # bungie_name = "andyp472#3715"
-    # write_to("player.json", pp(bungie.get_player(test_names[1])))
-    # components = {"Profiles", "characters"}#, "CharacterActivities"}
-    components = {"Characters", "CharacterActivities"}
-    # write_to("profile.json", pp(bungie.get_user(bungie_name, components)))
-    activities = bungie.get_user(bungie_name, components)["Response"]["characterActivities"]["data"]
-    characters = bungie.get_user(bungie_name, components)["Response"]["characters"]["data"]
-    
-    for id in characters:
-        class_hash = str(characters[id]["classHash"])
-        class_name = classdef[class_hash]["displayProperties"]["name"]
-        dt = characters[id]["dateLastPlayed"]
-        # print(f"{id}: {dt} ({class_name})")
-        print(f"{class_name}: {dt})")
+    activity_manifeset = manifest["DestinyActivityDefinition"]
+    destination_manifeset = manifest["DestinyDestinationDefinition"]
+    class_manifest = manifest["DestinyClassDefinition"]
+    for id in character_infos:
+        try:
+            class_hash = str(character_infos[id]["classHash"])
+            class_name = class_manifest[class_hash]["displayProperties"]["name"]
+        except Exception as e:
+            class_name = e
 
-        activity_hash = activities[id]["currentActivityHash"]
-        mode_hash = activities[id]["currentActivityModeHash"]
-        playlist_hash = activities[id]["currentPlaylistActivityHash"]
-        print("",end="\t")
-        print(activity_hash,mode_hash,playlist_hash, sep="\n\t")
+        try:
+            # Get current activity
+            activity_hash = str(character_activities[id]["currentActivityHash"])
+            activity_name = activity_manifeset[activity_hash]["displayProperties"]["name"]
+        except KeyError:
+            activity_name = 'No activity'
+        
+        try:
+            # Get current destination
+            destination_hash = str(activity_manifeset[activity_hash]["destinationHash"])
+            destination_name = destination_manifeset[destination_hash]["displayProperties"]["name"]
+        except KeyError:
+            destination_name = 'No destination'
 
-    # write_to("destdef", pp(bungie.get_definitions("DestinyDestinationDefinition")))
+        try:
+            # Get date-time
+            dt_string = character_activities[id]["dateActivityStarted"]
+            dt_object = datetime.datetime.strptime(dt_string, '%Y-%m-%dT%H:%M:%SZ').strftime("%m/%d/%Y, %H:%M:%S")
+        except KeyError as e:
+            print(e)
+
+        # print(f'{class_name}\t\t{dt_object}\t\t{destination_name}\t\t{activity_name}')
+        print(bungie_name, class_name, dt_object, destination_name, activity_name, sep="\n")
+        break
 
 if __name__ == "__main__":
     main()
