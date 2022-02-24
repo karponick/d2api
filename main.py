@@ -9,11 +9,8 @@ def main():
     manifest = bungie.get_manifest()
     # write_to("manifest.json", pp(manifest))
 
-    # bungie_name = "Sagey#8502"
-    # bungie_name = "chris#5313"
-    bungie_name = "AKapella#7901"
-    # get_char_stuff(manifest, bungie_name)
-    current_status(manifest, bungie_name)
+    bungie_names = {"Sagey#8502", "chris#5313", "AKapella#7901", "CharlOwOtte#2339"}
+    current_status(manifest, bungie_names[1])
 
 
 def write_to(file_path, text):
