@@ -2,29 +2,27 @@
 import requests
 import json
 
-CLIENT_ID = "39282"
-AUTH_PATH = "https://www.bungie.net/en/OAuth/Authorize"
-ROOT_PATH = "https://www.bungie.net/Platform"
-HEADERS = {"X-API-Key": "21a9e8aa1323434abbcb65442849a058"}
+from config import API_KEY
 
-def api_get(path):
+# AUTH_PATH = "https://www.bungie.net/en/OAuth/Authorize"
+ROOT_PATH = "https://www.bungie.net/Platform"
+BASIC_PATH = "https://www.bungie.net"
+HEADERS = {"X-API-Key": API_KEY}
+
+def api_get(path, params):
     '''Basic GET call
     Args:
         path (String): path for API call
     Returns:
         (JSON) from response'''
     try:
-        r = requests.get(ROOT_PATH + path, headers=HEADERS)
+        if params:
+            r = requests.get(ROOT_PATH + path, headers=HEADERS, params=params)
+        else:
+            r = requests.get(ROOT_PATH + path, headers=HEADERS)
         return r.json()
-    except:
-        print(r)
-        print(r.url)
-        exit()
-
-def api_getp(path, params):
-    '''GET call with parameters'''
-    r = requests.get(ROOT_PATH + path, headers=HEADERS, params=params)
-    return r.json()
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
 
 def api_post(path, body):
     '''Basic POST call
@@ -34,19 +32,33 @@ def api_post(path, body):
     Returns:
         (JSON) from response
     '''
-    r = requests.post(ROOT_PATH + path, headers=HEADERS, data=body)
-    return r.json()
+    try:
+        r = requests.post(ROOT_PATH + path, headers=HEADERS, data=body)
+        return r.json()
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
 
 def get_manifest_links():
     '''Gets urls for manifests'''
     path = "/Destiny2/Manifest"
-    return api_get(path)
+    return api_get(path, None)
 
 def get_manifest():
-    '''Get actual manifest info for definition using manifest urls'''
+    '''Get actual manifest - parse with definitions'''
     path = get_manifest_links()["Response"]["jsonWorldContentPaths"]["en"]
-    r = requests.get(f"https://www.bungie.net/{path}", headers=HEADERS)
-    return r.json()
+    try:
+        r = requests.get(BASIC_PATH + path)
+        return r.json()
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
+
+def get_image(path):
+    '''Get image from Bungie's website using manifest data'''
+    try:
+        r = requests.get(BASIC_PATH + path, stream=True)
+        return r.raw
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(e)
 
 def search_name(name, page):
     '''Search for player by name'''
@@ -54,7 +66,7 @@ def search_name(name, page):
     body = {"displayNamePrefix": name}
     return api_post(path, json.dumps(body))
 
-def get_player(bungie_name):
+def search_player_name(bungie_name):
     '''Get Destiny Player using Bungie Name
     Returned info contains Membership Type and ID
     '''
@@ -67,13 +79,13 @@ def get_profile(membershipType, destinyMembershipId, components):
     '''Get Destiny Profile using Membership Type and Id'''
     path = f"/Destiny2/{membershipType}/Profile/{destinyMembershipId}/"
     params = {"components": components}
-    return api_getp(path, params)
+    return api_get(path, params)
 
-def get_user(bungie_name, components):
-    '''Combination of get_player and get_user:
-    Get membership info with get_player using Bungie Name,
+def get_player(bungie_name, components):
+    '''Combination of search_player_name and get_profile:
+    Get membership info with search_player_name using Bungie Name,
     then use membership info to get_profile'''
-    player = get_player(bungie_name)["Response"][0]
+    player = search_player_name(bungie_name)["Response"][0]
     membershipType = player["membershipType"]
     membershipId = player["membershipId"]
     return get_profile(membershipType, membershipId, components)
